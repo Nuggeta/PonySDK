@@ -9,7 +9,7 @@ public class ApplicationManagerOption {
     public long heartBeatPeriod = 5;// seconds
 
     public void setHeartBeatPreiod(final long heartBeatPeriod, final TimeUnit timeUnit) {
-        TimeUnit.SECONDS.convert(heartBeatPeriod, timeUnit);
+        this.heartBeatPeriod = TimeUnit.SECONDS.convert(heartBeatPeriod, timeUnit);
     }
 
     public long getHeartBeatPeriod() {
