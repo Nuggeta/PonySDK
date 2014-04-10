@@ -2,8 +2,8 @@
  * Copyright (c) 2011 PonySDK
  *  Owners:
  *  Luciano Broussal  <luciano.broussal AT gmail.com>
- *	Mathieu Barbier   <mathieu.barbier AT gmail.com>
- *	Nicolas Ciaravola <nicolas.ciaravola.pro AT gmail.com>
+ *  Mathieu Barbier   <mathieu.barbier AT gmail.com>
+ *  Nicolas Ciaravola <nicolas.ciaravola.pro AT gmail.com>
  *  
  *  WebSite:
  *  http://code.google.com/p/pony-sdk/
@@ -50,33 +50,12 @@ public class PTPusher extends AbstractPTObject implements CommunicationErrorEven
     private WebSocketClient socketClient;
     private boolean hasCommunicationError = false;
 
+    protected boolean wsStarted = false;
+
     @Override
     public void create(final PTInstruction create, final UIService uiService) {
         if (!WebSocketClient.isSupported()) {
-
-            UIBuilder.getRootEventBus().addHandler(CommunicationErrorEvent.TYPE, this);
-
-            final PTInstruction eventInstruction = new PTInstruction();
-            eventInstruction.setObjectID(create.getObjectID());
-            eventInstruction.put(TYPE.KEY, TYPE.KEY_.EVENT);
-            eventInstruction.put(PROPERTY.ERROR_MSG, "WebSocket not supported");
-            uiService.sendDataToServer(eventInstruction);
-
-            int delay = 1000;
-            if (create.containsKey(PROPERTY.FIXDELAY)) delay = create.getInt(PROPERTY.FIXDELAY);
-
-            Scheduler.get().scheduleFixedDelay(new RepeatingCommand() {
-
-                @Override
-                public boolean execute() {
-                    final PTInstruction eventInstruction = new PTInstruction();
-                    eventInstruction.setObjectID(create.getObjectID());
-                    eventInstruction.put(TYPE.KEY, TYPE.KEY_.EVENT);
-                    eventInstruction.put(PROPERTY.POLL, true);
-                    uiService.sendDataToServer(eventInstruction);
-                    return !hasCommunicationError;
-                }
-            }, delay);
+            createPollConnection(create, uiService);
         } else {
             super.create(create, uiService);
 
@@ -94,6 +73,16 @@ public class PTPusher extends AbstractPTObject implements CommunicationErrorEven
 
                 @Override
                 public void disconnected() {
+                    if (!wsStarted) {
+                        /*
+                         * Try to use HTTP polling if the WS connection failed
+                         */
+                        socketClient.close();
+
+                        createPollConnection(create, uiService);
+                        return;
+                    }
+
                     log.info("Disconnected from: " + wsServerURL);
                     uiService.onCommunicationError(new Exception("Websocket connection lost."));
                     uiService.unRegisterObject(getObjectID());
@@ -101,6 +90,8 @@ public class PTPusher extends AbstractPTObject implements CommunicationErrorEven
 
                 @Override
                 public void connected() {
+                    wsStarted = true;
+
                     log.info("Connected to: " + wsServerURL);
                 }
             });
@@ -126,6 +117,32 @@ public class PTPusher extends AbstractPTObject implements CommunicationErrorEven
                 }, ping);
             }
         }
+    }
+
+    private void createPollConnection(final PTInstruction create, final UIService uiService) {
+        UIBuilder.getRootEventBus().addHandler(CommunicationErrorEvent.TYPE, this);
+
+        final PTInstruction eventInstruction = new PTInstruction();
+        eventInstruction.setObjectID(create.getObjectID());
+        eventInstruction.put(TYPE.KEY, TYPE.KEY_.EVENT);
+        eventInstruction.put(PROPERTY.ERROR_MSG, "WebSocket not supported");
+        uiService.sendDataToServer(eventInstruction);
+
+        int delay = 1000;
+        if (create.containsKey(PROPERTY.FIXDELAY)) delay = create.getInt(PROPERTY.FIXDELAY);
+
+        Scheduler.get().scheduleFixedDelay(new RepeatingCommand() {
+
+            @Override
+            public boolean execute() {
+                final PTInstruction eventInstruction = new PTInstruction();
+                eventInstruction.setObjectID(create.getObjectID());
+                eventInstruction.put(TYPE.KEY, TYPE.KEY_.EVENT);
+                eventInstruction.put(PROPERTY.POLL, true);
+                uiService.sendDataToServer(eventInstruction);
+                return !hasCommunicationError;
+            }
+        }, delay);
     }
 
     @Override
