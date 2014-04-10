@@ -82,6 +82,31 @@ public class BootstrapServlet extends HttpServlet {
     }
 
     @Override
+    protected long getLastModified(final HttpServletRequest request) {
+
+        long lastModified = -1;
+        try {
+            String requestURI = request.getRequestURI();
+            if (requestURI == null || requestURI.isEmpty() || requestURI.equals("/")) {
+                requestURI = "/index.html";
+            }
+
+            File file = new File(getServletContext().getRealPath(requestURI));
+            if (!file.exists()) {
+                final String ponyJarPath = BootstrapServlet.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+                file = new File(ponyJarPath);
+                // log.info("Loading resource inside ponysdk jar : " + ponyJarPath);
+            }
+            lastModified = file.lastModified();
+            // log.info(file + " lastmodified  : " + lastModified);
+        } catch (final Throwable e) {
+            log.error("Cannot getLastModified of the request", e);
+        }
+
+        return lastModified;
+    }
+
+    @Override
     protected void doGet(final HttpServletRequest request, final HttpServletResponse response) throws IOException {
         handlePonyResource(request, response);
     }
@@ -145,7 +170,9 @@ public class BootstrapServlet extends HttpServlet {
         }
 
         response.setContentType(type);
-        copy(inputStream, response.getOutputStream());
+        final int lenght = copy(inputStream, response.getOutputStream());
+        response.setContentLength(lenght);
+        // response.setHeader("Cache-Control", "public");
     }
 
     public static int copy(final InputStream in, final OutputStream out) throws IOException {
