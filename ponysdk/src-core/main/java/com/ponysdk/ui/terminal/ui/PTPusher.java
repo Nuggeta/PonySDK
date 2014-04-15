@@ -93,29 +93,29 @@ public class PTPusher extends AbstractPTObject implements CommunicationErrorEven
                     wsStarted = true;
 
                     log.info("Connected to: " + wsServerURL);
+
+                    int ping = 1000;
+                    if (create.containsKey(PROPERTY.PINGDELAY)) ping = create.getInt(PROPERTY.PINGDELAY);
+
+                    if (ping > 0) {
+                        Scheduler.get().scheduleFixedDelay(new RepeatingCommand() {
+
+                            @Override
+                            public boolean execute() {
+                                final int timeStamp = (int) (new Date().getTime() * .001);
+                                final JSONObject jso = new JSONObject();
+                                jso.put(Dictionnary.APPLICATION.PING, new JSONNumber(timeStamp));
+                                jso.put(Dictionnary.APPLICATION.VIEW_ID, new JSONNumber(UIBuilder.sessionID));
+                                socketClient.send(jso.toString());
+                                return !hasCommunicationError;
+                            }
+                        }, ping);
+                    }
                 }
             });
 
             log.info("Connecting to: " + wsServerURL);
             socketClient.connect(wsServerURL);
-
-            int ping = 1000;
-            if (create.containsKey(PROPERTY.PINGDELAY)) ping = create.getInt(PROPERTY.PINGDELAY);
-
-            if (ping > 0) {
-                Scheduler.get().scheduleFixedDelay(new RepeatingCommand() {
-
-                    @Override
-                    public boolean execute() {
-                        final int timeStamp = (int) (new Date().getTime() * .001);
-                        final JSONObject jso = new JSONObject();
-                        jso.put(Dictionnary.APPLICATION.PING, new JSONNumber(timeStamp));
-                        jso.put(Dictionnary.APPLICATION.VIEW_ID, new JSONNumber(UIBuilder.sessionID));
-                        socketClient.send(jso.toString());
-                        return !hasCommunicationError;
-                    }
-                }, ping);
-            }
         }
     }
 
