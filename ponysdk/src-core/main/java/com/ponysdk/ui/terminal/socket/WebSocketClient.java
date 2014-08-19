@@ -5,20 +5,31 @@ public class WebSocketClient {
 
     final WebSocketCallback callback;
 
+    private boolean responseReceived = false;
+
     public WebSocketClient(final WebSocketCallback callback) {
         this.callback = callback;
     }
 
     private final void onopen() {
+        responseReceived = true;
         callback.connected();
     }
 
     private final void onclose() {
+        responseReceived = true;
         callback.disconnected();
     }
 
     private final void onmessage(final String message) {
+        responseReceived = true;
         callback.message(message);
+    }
+
+    private final void ontimeout() {
+        if (!responseReceived) {
+            callback.disconnected();
+        }
     }
 
     public static native boolean isSupported()/*-{
@@ -52,6 +63,10 @@ public class WebSocketClient {
                                               that._ws.onclose = function(m) {
                                                   that.@com.ponysdk.ui.terminal.socket.WebSocketClient::onclose()();
                                               };
+                                              
+                                              setTimeout(function() {
+                                                  that.@com.ponysdk.ui.terminal.socket.WebSocketClient::ontimeout()();
+                                              }, 3000);
                                               
                                               }-*/;
 
